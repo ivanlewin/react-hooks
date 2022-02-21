@@ -3,7 +3,7 @@
 
 import * as React from 'react'
 
-function useLocalStorage(key, initialValue) {
+export function useLocalStorage(key, initialValue) {
   const getInitialState = () => {
     try {
       const value = JSON.parse(window.localStorage.getItem(key));
