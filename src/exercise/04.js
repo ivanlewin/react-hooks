@@ -39,52 +39,47 @@ function Game() {
   const [currentMove, setCurrentMove] = useLocalStorageState('currentMove', history.length - 1);
   const currentSquares = history[currentMove];
 
-  function selectSquare(square) {
-    if (winner !== null) {
-      return;
-    }
-
-    const historyCopy = [...history];
-    const squaresCopy = [...(historyCopy[historyCopy.length - 1])];
-    squaresCopy[square] = nextValue;
-    historyCopy.push(squaresCopy);
-    setHistory(historyCopy);
-    setCurrentMove(historyCopy.length - 1);
-  }
-
   const nextValue = calculateNextValue(currentSquares);
   const winner = calculateWinner(currentSquares);
   const status = calculateStatus(winner, currentSquares, nextValue);
+
+  function selectSquare(square) {
+    if (winner !== null || currentSquares[square] !== null) {
+      return;
+    }
+
+    const historyCopy = history.slice(0, currentMove + 1); // shallow copy whole history (currentMove included)
+    const squaresCopy = currentSquares.slice(); // shallow copy currentSquares
+    squaresCopy[square] = nextValue;
+
+    setHistory([...historyCopy, squaresCopy]);
+    setCurrentMove(historyCopy.length);
+  }
 
   const restart = () => {
     setHistory([Array(9).fill(null)]);
     setCurrentMove(0);
   };
 
-  function renderMove(move, index) {
-    return (
-      <li>
-        <button
-          key={move}
-          onClick={() => handleClickOnMove(index)}
-          disabled={index === currentMove}
-        >
-          {`${move}${index === currentMove ? ' (current)' : ''}`}
-        </button>
-      </li>
-    );
-  }
-
-  const moves = React.useMemo(() => {
-    return history.reduce((acc, curr, index) => {
-      if (index === 0) return [...acc, 'Go to game start'];
-      else return [...acc, `Go to move #${index}`];
-    }, []);
-  }, [history]);
-
-  const handleClickOnMove = (index) => {
+  const handleClickOnMove = React.useCallback((index) => {
     setCurrentMove(index);
-  };
+  }, [setCurrentMove]);
+
+  const moves = React.useMemo(() => (
+    history.map((_, index) => {
+      const label = index === 0 ? 'Go to game start' : `Go to move #${index}`;
+      return (
+        <li key={index}>
+          <button
+            disabled={index === currentMove}
+            onClick={() => handleClickOnMove(index)}
+          >
+            {`${label}${index === currentMove ? ' (current)' : ''}`}
+          </button>
+        </li>
+      );
+    })
+  ), [history, currentMove, handleClickOnMove]);
 
   return (
     <div className="game">
@@ -97,7 +92,7 @@ function Game() {
       <div className="game-info">
         <div>{status}</div>
         <ol>
-          {moves.map(renderMove)}
+          {moves}
         </ol>
       </div>
     </div>
