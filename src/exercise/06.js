@@ -7,32 +7,59 @@ import * as React from 'react';
 // PokemonInfoFallback: the thing we show while we're loading the pokemon info
 // PokemonDataView: the stuff we use to display the pokemon info
 import { PokemonForm, fetchPokemon, PokemonInfoFallback, PokemonDataView } from '../pokemon';
+import { ErrorBoundary } from 'react-error-boundary';
 
 function PokemonInfo({ pokemonName }) {
-  const [pokemon, setPokemon] = React.useState(null);
-  const [error, setError] = React.useState(null);
+  const [state, setState] = React.useState({
+    status: pokemonName ? 'pending' : 'idle',
+    error: null,
+    data: null
+  });
 
   React.useEffect(() => {
     if (!pokemonName) return;
-    setPokemon(null);
-    setError(null);
+    setState(state => ({
+      ...state,
+      status: 'pending'
+    }));
     fetchPokemon(pokemonName)
       .then(
-        pokemonData => setPokemon(pokemonData),
-        fetchPokemonError => setError(fetchPokemonError)
+        pokemonData => {
+          setState({
+            error: null,
+            status: 'resolved',
+            data: pokemonData
+          });
+        },
+        fetchPokemonError => {
+          setState(state => ({
+            data: state.data,
+            error: fetchPokemonError.message,
+            status: 'rejected',
+          }));
+        }
       );
   }, [pokemonName]);
 
-  if (error && error.message) {
-    return (
-      <div role="alert">
-        There was an error: <pre style={{ whiteSpace: 'normal' }}>{error.message}</pre>
-      </div>
-    );
+  if (state.status === 'idle') {
+    return 'Submit a pokemon';
+  } else if (state.status === 'pending') {
+    return <PokemonInfoFallback name={pokemonName} />;
+  } else if (state.status === 'rejected') {
+    throw new Error(state.error);
+  } else if (state.status === 'resolved') {
+    return <PokemonDataView pokemon={state.data} />;
+  } else {
+    throw new Error("Shouldn't have gotten to this point");
   }
-  if (!pokemonName) return 'Submit a pokemon';
-  if (!pokemon) return <PokemonInfoFallback name={pokemonName} />;
-  return <PokemonDataView pokemon={pokemon} />;
+}
+
+function ErrorDisplay({ error, resetErrorBoundary }) {
+  return (
+    <>
+      <div role="alert">There was an error: <pre style={{ whiteSpace: 'normal' }}>{error.message}</pre></div>
+      <button onClick={resetErrorBoundary}>Try again</button></>
+  );
 }
 
 function App() {
@@ -42,12 +69,22 @@ function App() {
     setPokemonName(newPokemonName);
   }
 
+  function handleReset() {
+    setPokemonName('');
+  }
+
   return (
     <div className="pokemon-info-app">
       <PokemonForm pokemonName={pokemonName} onSubmit={handleSubmit} />
       <hr />
       <div className="pokemon-info">
-        <PokemonInfo pokemonName={pokemonName} />
+        <ErrorBoundary
+          FallbackComponent={ErrorDisplay}
+          onReset={handleReset}
+          resetKeys={[pokemonName]}
+        >
+          <PokemonInfo pokemonName={pokemonName} />
+        </ErrorBoundary>
       </div>
     </div>
   );
